@@ -1,7 +1,11 @@
 package com.emad.familyinfo
 
 import android.os.Bundle
+import android.os.Environment
+import android.os.Environment.DIRECTORY_DOCUMENTS
 import android.util.Log
+import android.widget.Toast
+import android.widget.Toast.LENGTH_SHORT
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.*
@@ -17,12 +21,21 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Observer
+import com.emad.familyinfo.data.FamilyInfoModel
+import com.emad.familyinfo.data.RepositoryManagerLocal
 import com.emad.familyinfo.ui.theme.*
 import com.emad.familyinfo.ui.theme.FieldEnum.*
+import com.github.doyaaaaaken.kotlincsv.client.KotlinCsvExperimental
+import com.github.doyaaaaaken.kotlincsv.dsl.csvWriter
+import com.google.gson.Gson
+import java.io.File
+import java.io.InputStreamReader
 
-class MainActivity : ComponentActivity() {
+class FormActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         setContent {
             FamilyInfoTheme {
                 // A surface container using the 'background' color from the theme
@@ -35,6 +48,8 @@ class MainActivity : ComponentActivity() {
 
                     val validFields = remember { mutableStateOf(0) }
 
+                    val formModel = remember { mutableStateOf(FamilyInfoModel()) }
+
                     if (dialogOpen.value) {
                         showDialog(dialogEnum.value,
                             onDismiss = { dialogOpen.value = false },
@@ -42,9 +57,11 @@ class MainActivity : ComponentActivity() {
                                 when (dialogEnum.value) {
                                     HOUSING_TYPE -> {
                                         selectedHousing.value = it
+                                        formModel.value.changeAttribute(FieldEnum.HOUSING_TYPE, it)
                                     }
                                     ISARGARI -> {
                                         selectedIsargari.value = it
+                                        formModel.value.changeAttribute(FieldEnum.ISARGARI, it)
                                     }
                                 }
                             })
@@ -55,53 +72,59 @@ class MainActivity : ComponentActivity() {
                             .fillMaxWidth()
                             .verticalScroll(rememberScrollState())
                     ) {
-                        TextInputField(HH_NAME, validFields)
-                        TextInputField(WIFE_NAME, validFields)
-                        TextInputField(BOY_COUNT, validFields)
-                        TextInputField(GIRL_COUNT, validFields)
-                        TextInputField(SUPPORT_COUNT, validFields)
-                        TextInputField(NATIONAL_CODE, validFields)
-                        TextInputField(POSTAL_CODE, validFields)
+                        TextInputField2(HH_NAME, formModel)
+                        TextInputField2(WIFE_NAME, formModel)
+                        TextInputField2(BOY_COUNT, formModel)
+                        TextInputField2(GIRL_COUNT, formModel)
+                        TextInputField2(SUPPORT_COUNT, formModel)
+                        TextInputField2(NATIONAL_CODE, formModel)
+                        TextInputField2(POSTAL_CODE, formModel)
                         if (selectedHousing.value != "")
                             SelectionField(selectedHousing.value, HOUSING_TYPE) {
                                 dialogOpen.value = true
                                 dialogEnum.value = HOUSING_TYPE
                                 selectedHousing.value = ""
-                                validFields.value --
+                                validFields.value--
                             }
                         else SelectionField(null, HOUSING_TYPE) {
                             dialogOpen.value = true
                             dialogEnum.value = HOUSING_TYPE
-                            validFields.value ++
+                            validFields.value++
                         }
-                        TextInputField(DEGREE, validFields)
-                        TextInputField(JOB, validFields)
-                        TextInputField(FINANCIAL_ACT, validFields)
-                        TextInputField(EXPERTISE_TYPE, validFields)
-                        TextInputField(INSURANCE_TYPE, validFields)
+                        TextInputField2(DEGREE, formModel)
+                        TextInputField2(JOB, formModel)
+                        TextInputField2(FINANCIAL_ACT, formModel)
+                        TextInputField2(EXPERTISE_TYPE, formModel)
+                        TextInputField2(INSURANCE_TYPE, formModel)
                         if (selectedIsargari.value != "")
                             SelectionField(selectedIsargari.value, ISARGARI) {
                                 dialogOpen.value = true
                                 dialogEnum.value = ISARGARI
                                 selectedIsargari.value = ""
-                                validFields.value --
+                                validFields.value--
                             }
                         else SelectionField(null, ISARGARI) {
                             dialogOpen.value = true
                             dialogEnum.value = ISARGARI
-                            validFields.value ++
+                            validFields.value++
                         }
-                        TextInputField(RARE_DISEASE, validFields)
-                        TextInputField(PHONE_NUMBER_HOME, validFields)
-                        TextInputField(PHONE_NUMBER_MOBILE, validFields)
-                        TextInputField(PHONE_NUMBER_EMS, validFields)
-                        TextInputField(ADDRESS, validFields)
-                        TextInputField(EXTRA_INFO, validFields)
+                        TextInputField2(RARE_DISEASE, formModel)
+                        TextInputField2(PHONE_NUMBER_HOME, formModel)
+                        TextInputField2(PHONE_NUMBER_MOBILE, formModel)
+                        TextInputField2(PHONE_NUMBER_EMS, formModel)
+                        TextInputField2(ADDRESS, formModel)
+                        TextInputField2(EXTRA_INFO, formModel)
                         Spacer(modifier = Modifier.padding(top = 12.dp))
                         Button(
                             onClick = {
-                                if(validFields.value == 20){
-                                    insertFormIntoDb()
+                                if (!formModel.value.hasNull())
+                                    insertFormIntoDb(formModel.value)
+                                else {
+                                    Toast.makeText(
+                                        this@FormActivity,
+                                        "لطفا همه موارد را تکمیل کنید!",
+                                        LENGTH_SHORT
+                                    ).show()
                                 }
                             },
                             Modifier
@@ -121,20 +144,36 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        RepositoryManagerLocal.newInstance(this@FormActivity).database.familyInfoDao().fetchAllData().observe(this, Observer {
+            if(it.size == 0) return@Observer
+            val parentFile = Environment.getExternalStoragePublicDirectory("$DIRECTORY_DOCUMENTS/reports")
+            val file = File(parentFile, "report.csv")
+
+            parentFile.mkdirs()
+            val writer = csvWriter{charset = "ISO-8859-1"}.openAndGetRawWriter(file, false)
+            val keys = ArrayList<String>()
+            for (i in it[0].javaClass.declaredFields.indices) {
+                keys.add(it[0].javaClass.declaredFields[i].name)
+            }
+            writer.writeRow(keys)
+            for(item in it){
+                writer.writeRow(item.getValues())
+            }
+            writer.close()
+        })
     }
 
-    private fun insertFormIntoDb() {
-
-    }
-
-    private fun inputIsValid(): Boolean {
-        return true
+    private fun insertFormIntoDb(value: FamilyInfoModel) {
+        RepositoryManagerLocal.newInstance(this@FormActivity).database.familyInfoDao().insert(value)
     }
 }
 
 @Preview
 @Composable
-fun TextInputField(fieldEnum: FieldEnum = HH_NAME, validFields: MutableState<Int> = mutableStateOf(0)) {
+fun TextInputField(
+    fieldEnum: FieldEnum = HH_NAME,
+    validFields: MutableState<Int> = mutableStateOf(0)
+) {
     var text by remember { mutableStateOf("") }
     Box(
         Modifier
@@ -154,6 +193,38 @@ fun TextInputField(fieldEnum: FieldEnum = HH_NAME, validFields: MutableState<Int
                 else if (text.isBlank() && it.isNotBlank())
                     validFields.value++
                 text = it
+            },
+            label = {
+                Text(
+                    fieldEnum.text,
+                    Modifier
+                        .fillMaxWidth()
+                        .background(color = Color.Transparent),
+                    style = myTextStyle()
+                )
+            },
+        )
+    }
+}
+
+@Composable
+fun TextInputField2(fieldEnum: FieldEnum = HH_NAME, formModel: MutableState<FamilyInfoModel>) {
+    var text by remember { mutableStateOf("") }
+    Box(
+        Modifier
+            .padding(top = 16.dp)
+//            .background(color = Color.DarkGray)
+    ) {
+        TextField(
+            modifier = Modifier
+                .fillMaxWidth(0.8f)
+                .background(color = Color.DarkGray, shape = TopRoundedShape),
+            textStyle = myTextStyle(),
+            value = text,
+            shape = TopRoundedShape,
+            onValueChange = {
+                text = it
+                formModel.value.changeAttribute(fieldEnum, it)
             },
             label = {
                 Text(

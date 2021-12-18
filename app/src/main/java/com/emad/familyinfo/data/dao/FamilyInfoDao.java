@@ -10,6 +10,8 @@ import androidx.room.Update;
 
 import com.emad.familyinfo.data.FamilyInfoModel;
 
+import java.util.List;
+
 @Dao
 public interface FamilyInfoDao {
 
@@ -26,5 +28,5 @@ public interface FamilyInfoDao {
     void deleteProfile(FamilyInfoModel info);
 
     @Query("SELECT * FROM family_table")
-    LiveData<FamilyInfoModel> fetchAllData();
+    LiveData<List<FamilyInfoModel>> fetchAllData();
 }
