@@ -1,8 +1,10 @@
 package com.emad.familyinfo
 
+import android.Manifest
 import android.os.Bundle
 import android.os.Environment
 import android.os.Environment.DIRECTORY_DOCUMENTS
+import android.os.Handler
 import android.util.Log
 import android.widget.Toast
 import android.widget.Toast.LENGTH_SHORT
@@ -31,6 +33,22 @@ import com.github.doyaaaaaken.kotlincsv.dsl.csvWriter
 import com.google.gson.Gson
 import java.io.File
 import java.io.InputStreamReader
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast.LENGTH_LONG
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+
+import androidx.core.content.ContextCompat.startActivity
+import androidx.core.content.FileProvider
+import java.net.URLConnection
+import android.content.pm.PackageManager
+import com.opencsv.bean.StatefulBeanToCsv
+import com.opencsv.bean.StatefulBeanToCsvBuilder
+import java.io.FileWriter
+import java.io.Writer
+import com.opencsv.CSVWriter
+
 
 class FormActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -72,6 +90,34 @@ class FormActivity : ComponentActivity() {
                             .fillMaxWidth()
                             .verticalScroll(rememberScrollState())
                     ) {
+                        Button(
+                            onClick = {
+                                if (!formModel.value.hasNull())
+                                    insertFormIntoDb(formModel.value)
+                                else {
+                                    Toast.makeText(
+                                        this@FormActivity,
+                                        "فرم فعلی کامل نیست و در گزارش نخواهد بود!",
+                                        LENGTH_LONG
+                                    ).show()
+                                }
+                                Handler().postDelayed({
+                                    shareFile()
+                                }, 500)
+                            },
+                            Modifier
+                                .background(
+                                    color = Color.Yellow,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "دریافت گزارش اکسل",
+                                fontFamily = myFont,
+                                modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
+                            )
+                        }
                         TextInputField2(HH_NAME, formModel)
                         TextInputField2(WIFE_NAME, formModel)
                         TextInputField2(BOY_COUNT, formModel)
@@ -144,27 +190,80 @@ class FormActivity : ComponentActivity() {
                 }
             }
         }
-        RepositoryManagerLocal.newInstance(this@FormActivity).database.familyInfoDao().fetchAllData().observe(this, Observer {
-            if(it.size == 0) return@Observer
-            val parentFile = Environment.getExternalStoragePublicDirectory("$DIRECTORY_DOCUMENTS/reports")
-            val file = File(parentFile, "report.csv")
+        checkPermissions()
+    }
 
-            parentFile.mkdirs()
-            val writer = csvWriter{charset = "ISO-8859-1"}.openAndGetRawWriter(file, false)
-            val keys = ArrayList<String>()
-            for (i in it[0].javaClass.declaredFields.indices) {
-                keys.add(it[0].javaClass.declaredFields[i].name)
+    private fun checkPermissions() {
+        val permissions = arrayOf(
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+        )
+
+        var result: Int
+        val listPermissionsNeeded: MutableList<String> = ArrayList()
+        for (p in permissions) {
+            result = ContextCompat.checkSelfPermission(this, p)
+            if (result != PackageManager.PERMISSION_GRANTED) {
+                listPermissionsNeeded.add(p)
             }
-            writer.writeRow(keys)
-            for(item in it){
-                writer.writeRow(item.getValues())
-            }
-            writer.close()
-        })
+        }
+        if (!listPermissionsNeeded.isEmpty()) {
+            ActivityCompat.requestPermissions(this, listPermissionsNeeded.toTypedArray(), 100)
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 100) {
+            checkPermissions()
+        }
     }
 
     private fun insertFormIntoDb(value: FamilyInfoModel) {
         RepositoryManagerLocal.newInstance(this@FormActivity).database.familyInfoDao().insert(value)
+    }
+
+    private fun shareFile() {
+
+        val file = File(getExternalFilesDir(null).toString() + "/report.csv")
+
+        RepositoryManagerLocal.newInstance(this@FormActivity).database.familyInfoDao()
+            .fetchAllData().observe(this, Observer {
+                if (it.size == 0) {
+                    return@Observer
+                }
+
+                val keys = ArrayList<String>()
+                for (i in it[0].javaClass.declaredFields.indices) {
+                    keys.add(it[0].javaClass.declaredFields[i].name)
+                }
+
+                val writer: Writer = FileWriter(file)
+                val beanToCsv: StatefulBeanToCsv<FamilyInfoModel> =
+                    StatefulBeanToCsvBuilder<FamilyInfoModel>(writer).build()
+                for (item in it) {
+                    beanToCsv.write(item)
+                }
+                writer.close()
+
+
+                val intentShareFile = Intent(Intent.ACTION_SEND)
+                intentShareFile.type = URLConnection.guessContentTypeFromName(file.name)
+                intentShareFile.putExtra(
+                    Intent.EXTRA_STREAM,
+                    FileProvider.getUriForFile(this, "com.emad.familyinfo", file)
+                )
+
+                startActivity(
+                    this,
+                    Intent.createChooser(intentShareFile, "به اشتراک گذاری گزارش"),
+                    null
+                )
+            })
     }
 }
 

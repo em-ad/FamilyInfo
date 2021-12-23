@@ -4,32 +4,94 @@ import android.util.Log
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.emad.familyinfo.ui.theme.FieldEnum
+import com.opencsv.bean.CsvBindByName
 import java.io.Serializable
 
 @Entity(tableName = "family_table")
 class FamilyInfoModel : Serializable {
 
+    @CsvBindByName
     @PrimaryKey(autoGenerate = true)
     var id: Int = 0
+
+    @CsvBindByName
+
     var name: String? = null
+
+    @CsvBindByName
+
     var nid: String? = null
+
+    @CsvBindByName
+
     var postal: String? = null
+
+    @CsvBindByName
+
     var wifeName: String? = null
+
+    @CsvBindByName
+
     var boyCount: String? = null
+
+    @CsvBindByName
+
     var girlCount: String? = null
+
+    @CsvBindByName
+
     var supportedCount: String? = null
+
+    @CsvBindByName
+
     var housing: String? = null
+
+    @CsvBindByName
+
     var job: String? = null
+
+    @CsvBindByName
+
     var degree: String? = null
+
+    @CsvBindByName
+
     var financialActivity: String? = null
+
+    @CsvBindByName
+
     var expertise: String? = null
+
+    @CsvBindByName
+
     var insurance: String? = null
+
+    @CsvBindByName
+
     var isargari: String? = null
+
+    @CsvBindByName
+
     var disease: String? = null
+
+    @CsvBindByName
+
     var phoneNumber: String? = null
+
+    @CsvBindByName
+
     var homeNumber: String? = null
+
+    @CsvBindByName
+
     var emsNumber: String? = null
+
+    @CsvBindByName
+
     var address: String? = null
+
+    @CsvBindByName
+
     var description: String? = null
 
     fun changeAttribute(fieldEnum: FieldEnum, it: String) {
