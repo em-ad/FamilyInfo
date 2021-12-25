@@ -43,6 +43,8 @@ import androidx.core.content.ContextCompat.startActivity
 import androidx.core.content.FileProvider
 import java.net.URLConnection
 import android.content.pm.PackageManager
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import com.opencsv.bean.StatefulBeanToCsv
 import com.opencsv.bean.StatefulBeanToCsvBuilder
 import java.io.FileWriter
@@ -315,6 +317,7 @@ fun TextInputField2(fieldEnum: FieldEnum = HH_NAME, formModel: MutableState<Fami
 //            .background(color = Color.DarkGray)
     ) {
         TextField(
+            keyboardOptions = KeyboardOptions(keyboardType = fieldEnum.keyboardType),
             modifier = Modifier
                 .fillMaxWidth(0.8f)
                 .background(color = Color.DarkGray, shape = TopRoundedShape),
