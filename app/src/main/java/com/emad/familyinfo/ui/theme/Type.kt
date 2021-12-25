@@ -22,3 +22,7 @@ val Typography = Typography(
 val myFont = FontFamily(
     Font(R.font.app_font, FontWeight.Normal),
 )
+
+val myFontBold = FontFamily(
+    Font(R.font.app_font, FontWeight.ExtraBold),
+)

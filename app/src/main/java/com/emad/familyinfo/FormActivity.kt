@@ -44,7 +44,12 @@ import androidx.core.content.FileProvider
 import java.net.URLConnection
 import android.content.pm.PackageManager
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.Alignment.Companion.Center
+import androidx.compose.ui.graphics.Color.Companion.White
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.opencsv.bean.StatefulBeanToCsv
 import com.opencsv.bean.StatefulBeanToCsvBuilder
 import java.io.FileWriter
@@ -58,17 +63,33 @@ class FormActivity : ComponentActivity() {
 
         setContent {
             FamilyInfoTheme {
-                // A surface container using the 'background' color from the theme
                 Surface(color = Color.Black) {
                     val selectedHousing = remember { mutableStateOf("") }
                     val selectedIsargari = remember { mutableStateOf("") }
-
                     val dialogOpen = remember { mutableStateOf(false) }
                     val dialogEnum = remember { mutableStateOf(HOUSING_TYPE) }
-
                     val validFields = remember { mutableStateOf(0) }
-
                     val formModel = remember { mutableStateOf(FamilyInfoModel()) }
+                    var showDialog by remember { mutableStateOf(false) }
+
+                    if (showDialog) {
+                        Dialog(
+                            onDismissRequest = { showDialog = false },
+                            DialogProperties(
+                                dismissOnBackPress = false,
+                                dismissOnClickOutside = false
+                            )
+                        ) {
+                            Box(
+                                contentAlignment = Center,
+                                modifier = Modifier
+                                    .size(150.dp)
+                                    .background(White, shape = RoundedCornerShape(8.dp))
+                            ) {
+                                CircularProgressIndicator()
+                            }
+                        }
+                    }
 
                     if (dialogOpen.value) {
                         showDialog(dialogEnum.value,
@@ -103,9 +124,11 @@ class FormActivity : ComponentActivity() {
                                         LENGTH_LONG
                                     ).show()
                                 }
+                                showDialog = true
                                 Handler().postDelayed({
                                     shareFile()
-                                }, 500)
+                                    showDialog = false
+                                }, 1500)
                             },
                             Modifier
                                 .background(
@@ -116,7 +139,9 @@ class FormActivity : ComponentActivity() {
                         ) {
                             Text(
                                 text = "دریافت گزارش اکسل",
-                                fontFamily = myFont,
+                                fontFamily = myFontBold,
+                                color = Color.Black,
+                                fontSize = 17.sp,
                                 modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
                             )
                         }
@@ -165,9 +190,14 @@ class FormActivity : ComponentActivity() {
                         Spacer(modifier = Modifier.padding(top = 12.dp))
                         Button(
                             onClick = {
-                                if (!formModel.value.hasNull())
+                                if (!formModel.value.hasNull()) {
                                     insertFormIntoDb(formModel.value)
-                                else {
+                                    showDialog = true
+                                    Handler().postDelayed({
+                                        showDialog = false
+                                        recreate()
+                                    }, 1000)
+                                } else {
                                     Toast.makeText(
                                         this@FormActivity,
                                         "لطفا همه موارد را تکمیل کنید!",
@@ -183,8 +213,9 @@ class FormActivity : ComponentActivity() {
                                 .fillMaxWidth()
                         ) {
                             Text(
-                                text = "ذخیره در دیتابیس",
+                                text = "ذخیره و ادامه",
                                 fontFamily = myFont,
+                                color = Color.Black,
                                 modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
                             )
                         }
@@ -236,6 +267,11 @@ class FormActivity : ComponentActivity() {
         RepositoryManagerLocal.newInstance(this@FormActivity).database.familyInfoDao()
             .fetchAllData().observe(this, Observer {
                 if (it.size == 0) {
+                    Toast.makeText(
+                        this@FormActivity,
+                        "گزارشی در دستگاه ذخیره نشده است!",
+                        LENGTH_SHORT
+                    ).show()
                     return@Observer
                 }
 
@@ -314,12 +350,12 @@ fun TextInputField2(fieldEnum: FieldEnum = HH_NAME, formModel: MutableState<Fami
     Box(
         Modifier
             .padding(top = 16.dp)
-//            .background(color = Color.DarkGray)
     ) {
         TextField(
             keyboardOptions = KeyboardOptions(keyboardType = fieldEnum.keyboardType),
             modifier = Modifier
                 .fillMaxWidth(0.8f)
+                .wrapContentHeight()
                 .background(color = Color.DarkGray, shape = TopRoundedShape),
             textStyle = myTextStyle(),
             value = text,
@@ -382,77 +418,57 @@ fun showDialog(
     var text by remember { mutableStateOf("") }
 
     AlertDialog(
+        modifier = Modifier.padding(8.dp),
         onDismissRequest = {
             onDismiss()
         },
         title = {
-            Text(
-                text = fieldEnum.text,
-                Modifier
-                    .padding(all = 6.dp)
-                    .fillMaxWidth()
-                    .background(color = Color.DarkGray),
-                style = myTextStyle()
-            )
+            Box(
+                modifier = Modifier
+                    .padding(12.dp)
+                    .background(
+                        color = Orange,
+                        shape = RoundedCornerShape(4.dp)
+                    )
+            ) {
+                Text(
+                    text = fieldEnum.text,
+                    color = Color.Black,
+                    style = myTextStyle(),
+                    modifier = Modifier
+                        .padding(horizontal = 6.dp)
+                        .fillMaxWidth()
+                )
+            }
         },
         text = {
-            Column {
+            Column() {
+                HackySpacer(space = 12.dp)
                 fieldEnum.options?.let { array ->
                     array.forEach { option ->
-                        Text(
-                            option,
-                            Modifier
-                                .padding(all = 6.dp)
-                                .clickable {
-                                    onItemChosen(option)
-                                    onDismiss()
-                                }
-                                .fillMaxWidth()
-                                .background(color = Color.Gray, shape = TopRoundedShape),
-                            style = myTextStyle()
-                        )
+                        Box(
+                            modifier = Modifier
+                                .padding(6.dp)
+                                .background(color = Color.Gray, shape = RoundedCornerShape(6.dp)),
+                        ) {
+                            Text(
+                                option,
+                                Modifier
+                                    .padding(all = 6.dp)
+                                    .clickable {
+                                        onItemChosen(option)
+                                        onDismiss()
+                                    }
+                                    .fillMaxWidth(),
+                                style = myTextStyle()
+                            )
+                        }
                     }
                 }
             }
         },
         buttons = {}
     )
-
-}
-
-@Composable
-fun ValidationsComposble() {
-
-    var name by remember { mutableStateOf("") }
-    val nameTextUpdate = { data: String ->
-        name = data
-    }
-
-}
-
-@Composable
-fun ValidationsUI(
-    name: String,
-    nameUpdate: (String) -> Unit
-) {
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(start = 16.dp, end = 16.dp, top = 16.dp)
-            .verticalScroll(rememberScrollState())
-    ) {
-
-        OutlinedTextField(
-            value = name,
-            onValueChange = nameUpdate,
-            label = { Text("Name") },
-            modifier = Modifier
-                .fillMaxWidth(),
-        )
-
-    }
-
 }
 
 @Preview(showBackground = true)
@@ -471,4 +487,15 @@ fun myTextStyle(): TextStyle {
         fontFamily = myFont,
         color = Color.White
     )
+}
+
+@Composable
+fun HackySpacer(space: Dp) {
+    Box(
+        modifier = Modifier
+            .height(space)
+            .fillMaxWidth()
+    ) {
+        Text(text = "")
+    }
 }

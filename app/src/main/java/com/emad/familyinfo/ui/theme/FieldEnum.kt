@@ -28,4 +28,4 @@ enum class FieldEnum(val text: String,val options: Array<String>?, val keyboardT
 }
 
 val housingTypes: Array<String> = arrayOf("شخصی", "استیجاری", "سازمانی")
-val isargariTypes: Array<String> = arrayOf("شهید", "جانباز", "رزمنده")
+val isargariTypes: Array<String> = arrayOf("شهید", "جانباز", "رزمنده", "هیچکدام")
